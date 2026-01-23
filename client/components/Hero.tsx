@@ -2,17 +2,29 @@
 
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
+import { CAMPUS_NODES } from '../constants';
 
-interface HeroProps {
-  onSearch: (query: string) => void;
-}
-
-const Hero: React.FC<HeroProps> = ({ onSearch }) => {
+const Hero: React.FC = () => {
   const [query, setQuery] = useState('');
+  const handleSearchAction = useAppStore((state) => state.handleSearch);
+  const setSelectedDestId = useAppStore((state) => state.setSelectedDestId);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) onSearch(query);
+    if (query.trim()) {
+      // Find matching node
+      const found = CAMPUS_NODES.find(n => 
+        n.name.toLowerCase().includes(query.toLowerCase()) || 
+        n.category.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      if (found) {
+        setSelectedDestId(found.id);
+      }
+      
+      handleSearchAction(query);
+    }
   };
 
   return (

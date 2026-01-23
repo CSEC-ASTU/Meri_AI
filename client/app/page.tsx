@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import MapWrapper from '../components/MapWrapper';
@@ -9,30 +9,21 @@ import Footer from '../components/Footer';
 import InstallPWA from '../components/InstallPWA';
 import { AppRoute } from '../types';
 import { CAMPUS_NODES } from '../constants';
+import { useAppStore } from '../store/useAppStore';
 
 export default function Home() {
-  const [currentRoute, setCurrentRoute] = useState<AppRoute>(AppRoute.HOME);
-  const [selectedDestId, setSelectedDestId] = useState<string | undefined>(undefined);
-
-  const handleSearch = (query: string) => {
-    const found = CAMPUS_NODES.find(n => 
-      n.name.toLowerCase().includes(query.toLowerCase()) || 
-      n.category.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    if (found) {
-      setSelectedDestId(found.id);
-    }
-    // Navigate to map view whenever search is performed
-    setCurrentRoute(AppRoute.MAP);
-  };
+  const currentRoute = useAppStore((state) => state.currentRoute);
+  const selectedDestId = useAppStore((state) => state.selectedDestId);
+  const setCurrentRoute = useAppStore((state) => state.setCurrentRoute);
+  const handleSearch = useAppStore((state) => state.handleSearch);
+  const navigateToDestination = useAppStore((state) => state.navigateToDestination);
 
   const renderContent = () => {
     switch (currentRoute) {
       case AppRoute.HOME:
         return (
           <main className="flex-grow flex items-center animate-in fade-in duration-500">
-            <Hero onSearch={handleSearch} />
+            <Hero />
           </main>
         );
       
@@ -72,10 +63,7 @@ export default function Home() {
                 <div 
                   key={node.id} 
                   className="p-6 bg-white border border-slate-100 rounded-2xl hover:border-emerald-200 hover:shadow-sm transition-all cursor-pointer group"
-                  onClick={() => {
-                    setSelectedDestId(node.id);
-                    setCurrentRoute(AppRoute.MAP);
-                  }}
+                  onClick={() => navigateToDestination(node.id)}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
