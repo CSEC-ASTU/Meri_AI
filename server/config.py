@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     voyage_poi_api_key: Optional[str] = None  # For POI semantic search
     
     # Server Configuration
-    port: int = 4000
+    port: int = int(os.getenv("PORT", "4000"))  # Use Render's PORT env var
     host: str = "0.0.0.0"
     node_env: str = "development"
     
