@@ -184,21 +184,54 @@ async def _handle_navigation(
         else:
             reasoning_stream.append(f"✅ Start: {start_poi.name}")
         
+        # Try to get OSM route with actual walking path
+        osm_route = None
+        route_coords = None
+        try:
+            logger.info(f"[GeoReasoningNode] Requesting OSM route from ({start_poi.latitude}, {start_poi.longitude}) to ({end_poi.latitude}, {end_poi.longitude})")
+            # NOTE: get_route is synchronous, not async
+            osm_route = routing_service.get_route(
+                start_lat=start_poi.latitude,
+                start_lng=start_poi.longitude,
+                end_lat=end_poi.latitude,
+                end_lng=end_poi.longitude,
+                mode="walking"
+            )
+            if osm_route and osm_route.get("route_coords"):
+                route_coords = osm_route["route_coords"]
+                reasoning_stream.append(f"🗺️ Using OSM walking route ({len(route_coords)} waypoints)")
+                logger.info(f"[GeoReasoningNode] ✓ OSM route found with {len(route_coords)} waypoints")
+            else:
+                logger.warning(f"[GeoReasoningNode] OSM returned None or no route_coords")
+                reasoning_stream.append("⚠️ OSM routing unavailable, using straight line")
+        except Exception as e:
+            logger.error(f"[GeoReasoningNode] OSM routing failed: {type(e).__name__}: {e}", exc_info=True)
+            reasoning_stream.append(f"⚠️ OSM routing failed: {str(e)[:50]}, using straight line")
+        
         # Calculate distance and direction
-        distance_km = haversine_distance(
-            start_poi.latitude, start_poi.longitude,
-            end_poi.latitude, end_poi.longitude
-        )
-        
-        bearing = calculate_bearing(
-            start_poi.latitude, start_poi.longitude,
-            end_poi.latitude, end_poi.longitude
-        )
-        direction = bearing_to_direction(bearing)
-        
-        # Calculate walking time
-        walking_speed_kmh = 5.0  # Average walking speed
-        time_minutes = int((distance_km / walking_speed_kmh) * 60)
+        if osm_route:
+            # Use OSM calculated distance
+            distance_km = osm_route["distance_km"]
+            distance_meters = osm_route["distance_meters"]
+            time_minutes = int(osm_route["duration_minutes"])
+            route_steps = osm_route.get("instructions", [])
+        else:
+            # Fallback to haversine distance
+            distance_km = haversine_distance(
+                start_poi.latitude, start_poi.longitude,
+                end_poi.latitude, end_poi.longitude
+            )
+            distance_meters = int(distance_km * 1000)
+            
+            bearing = calculate_bearing(
+                start_poi.latitude, start_poi.longitude,
+                end_poi.latitude, end_poi.longitude
+            )
+            direction = bearing_to_direction(bearing)
+            
+            # Calculate walking time
+            walking_speed_kmh = 5.0  # Average walking speed
+            time_minutes = int((distance_km / walking_speed_kmh) * 60)
         
         # Adjust for urgency
         urgency = state.get("urgency", "normal")
@@ -211,18 +244,23 @@ async def _handle_navigation(
         
         time_minutes = max(1, time_minutes)  # At least 1 minute
         
-        # Generate route steps
-        route_steps = [
-            f"Start at {start_poi.name}",
-            f"Head {direction} for {int(distance_km * 1000)}m",
-            f"Arrive at {end_poi.name}"
-        ]
-        
-        if distance_km < 0.1:  # Less than 100m
+        # Generate route steps based on whether we have OSM route
+        if osm_route and route_steps:
+            # Use OSM turn-by-turn instructions if available
+            pass  # route_steps already set from osm_route
+        else:
+            # Fallback to simple direction-based steps
             route_steps = [
-                f"{end_poi.name} is very close to {start_poi.name}",
-                f"Walk {int(distance_km * 1000)}m {direction}"
+                f"Start at {start_poi.name}",
+                f"Head {direction} for {distance_meters}m",
+                f"Arrive at {end_poi.name}"
             ]
+            
+            if distance_km < 0.1:  # Less than 100m
+                route_steps = [
+                    f"{end_poi.name} is very close to {start_poi.name}",
+                    f"Walk {distance_meters}m {direction}"
+                ]
         
         # Create summary
         summary = f"Route from {start_poi.name} to {end_poi.name}: {distance_km:.2f}km, ~{time_minutes} min walk"
@@ -237,13 +275,13 @@ async def _handle_navigation(
             "geo_reasoning": [
                 f"Matched start location to: {start_poi.name}",
                 f"Matched destination to: {end_poi.name}",
-                f"Calculated haversine distance: {distance_km:.2f}km",
-                f"Direction: {direction} (bearing: {bearing:.0f}°)",
+                f"Calculated distance: {distance_km:.2f}km",
+                f"Route type: {'OSM walking path' if osm_route else 'straight line estimate'}",
                 f"Applied urgency mode: {urgency}"
             ],
             "geo_confidence": "high",
             "reasoning_stream": reasoning_stream,
-            # NEW: Add coordinates for map visualization
+            # Coordinates for map visualization
             "start_coordinates": {
                 "lat": start_poi.latitude,
                 "lon": start_poi.longitude,
@@ -253,7 +291,12 @@ async def _handle_navigation(
                 "lat": end_poi.latitude,
                 "lon": end_poi.longitude,
                 "name": end_poi.name
-            }
+            },
+            # NEW: Add route_coords array for actual path drawing
+            "route_coords": route_coords if route_coords else [
+                {"lat": start_poi.latitude, "lng": start_poi.longitude},
+                {"lat": end_poi.latitude, "lng": end_poi.longitude}
+            ]
         }
         
     except Exception as e:

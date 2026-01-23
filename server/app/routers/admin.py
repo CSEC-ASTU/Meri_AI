@@ -226,7 +226,7 @@ async def get_documents(
 ):
     """Get all documents"""
     try:
-        query = "SELECT id, title, source, created_at FROM documents LIMIT $1"
+        query = "SELECT id, title, content, source, tags, created_at FROM documents LIMIT $1"
         result = await db.execute_query(query, limit)
         return {"documents": result, "count": len(result)}
     except Exception as e:
@@ -332,6 +332,44 @@ async def upload_document(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload document: {str(e)}")
+
+
+@router.put("/documents/{doc_id}")
+async def update_document(
+    doc_id: int,
+    title: str = Form(...),
+    content: str = Form(...),
+    source: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+    db = Depends(get_db),
+    ai = Depends(get_ai)
+):
+    """Update a document and regenerate embedding"""
+    try:
+        # Regenerate embedding with updated content
+        embedding = await ai.generate_embedding(content)
+        
+        # Parse tags
+        tags_list = json.loads(tags) if tags else None
+        tags_json = json.dumps(tags_list) if tags_list else None
+        
+        query = """
+        UPDATE documents SET
+            title = $1, content = $2, source = $3, tags = $4, embedding = $5
+        WHERE id = $6
+        """
+        
+        await db.execute_query(
+            query,
+            title, content, source, tags_json, embedding, doc_id
+        )
+        
+        return {
+            "message": "Document updated successfully with new embedding",
+            "embedding_dim": len(embedding)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update document: {str(e)}")
 
 
 @router.delete("/documents/{doc_id}")
