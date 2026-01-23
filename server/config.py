@@ -52,9 +52,9 @@ class Settings(BaseSettings):
 # Global settings instance
 try:
     settings = Settings()
-    print("✓ Settings loaded successfully")
+    print("[OK] Settings loaded successfully")
 except Exception as e:
-    print(f"✗ Error loading settings: {e}")
+    print(f"[ERROR] Error loading settings: {e}")
     raise
 
 
