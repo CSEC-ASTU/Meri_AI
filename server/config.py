@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-004"
     
     # Server Configuration
-    port: int = 4000
+    port: int = int(os.getenv("PORT", "4000"))  # Use Render's PORT env var
     host: str = "0.0.0.0"
     node_env: str = "development"
     

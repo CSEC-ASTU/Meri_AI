@@ -148,8 +148,12 @@ app.include_router(query.router)
 app.include_router(route.router)
 app.include_router(nearby.router)
 
-# Mount static files (admin dashboard)
-app.mount("/", StaticFiles(directory="public", html=True), name="static")
+# Mount static files (admin dashboard) - only if directory exists
+import os
+from pathlib import Path
+public_dir = Path("public")
+if public_dir.exists() and public_dir.is_dir():
+    app.mount("/", StaticFiles(directory="public", html=True), name="static")
 
 
 if __name__ == "__main__":
