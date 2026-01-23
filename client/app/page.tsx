@@ -6,6 +6,7 @@ import Hero from '../components/Hero';
 import MapWrapper from '../components/MapWrapper';
 import AIAssistant from '../components/AIAssistant';
 import Footer from '../components/Footer';
+import InstallPWA from '../components/InstallPWA';
 import { AppRoute } from '../types';
 import { CAMPUS_NODES } from '../constants';
 
@@ -109,6 +110,7 @@ export default function Home() {
       <Navbar onNavigate={setCurrentRoute} currentRoute={currentRoute} />
       {renderContent()}
       <Footer />
+      <InstallPWA />
     </div>
   );
 }
