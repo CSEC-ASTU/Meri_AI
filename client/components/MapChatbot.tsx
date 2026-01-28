@@ -58,7 +58,7 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: '🗺️ Hi! I\'m your ASTU Navigation Assistant!\n\nAsk me:\n• "How do I get to the library?"\n• "Route from Block 57 to ICT Center"\n• "Where is the nearest mosque?"\n\nI\'ll show you the walking path on the map!',
+      content: '🗺️ Hi! I\'m your ASTU Navigation Assistant!\n\nAsk me:\n• "How do I get to the library?"\n• "Route from Block 57 to ICT Center"\n• "Where is Borchamu Building?"\n\nI\'ll show you the walking path on the map!',
       timestamp: Date.now()
     }
   ]);

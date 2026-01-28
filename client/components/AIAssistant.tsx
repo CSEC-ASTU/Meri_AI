@@ -29,14 +29,26 @@ const AIAssistant: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load chat history from localStorage on mount
+  // Load chat history from localStorage on mount (be tolerant of several formats)
   useEffect(() => {
     const savedHistory = localStorage.getItem(STORAGE_KEY);
     if (savedHistory) {
       try {
         const parsed = JSON.parse(savedHistory);
+        let messagesToLoad: any = null;
+
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
+          messagesToLoad = parsed;
+        } else if (parsed && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+          messagesToLoad = parsed.messages;
+        } else if (parsed && Array.isArray(parsed.history) && parsed.history.length > 0) {
+          messagesToLoad = parsed.history;
+        }
+
+        if (messagesToLoad) {
+          setMessages(messagesToLoad);
+          // Open history panel if we have saved messages
+          setShowHistory(true);
         }
       } catch (e) {
         console.error('Failed to load chat history:', e);
@@ -46,8 +58,19 @@ const AIAssistant: React.FC = () => {
 
   // Save chat history to localStorage whenever messages change
   useEffect(() => {
-    if (messages.length > 1) { // Don't save just the initial message
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    try {
+      if (messages.length > 1) { // Don't save just the initial message
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+        // small debug log to help diagnose missing storage
+        // eslint-disable-next-line no-console
+        console.debug('[AIAssistant] Saved chat history, messages:', messages.length);
+      } else {
+        // eslint-disable-next-line no-console
+        console.debug('[AIAssistant] Not saving initial-only message');
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[AIAssistant] Failed to save chat history:', e);
     }
   }, [messages]);
 
@@ -61,14 +84,22 @@ const AIAssistant: React.FC = () => {
         sources: data.sources,
         confidence: data.confidence,
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => {
+        const next = [...prev, aiMessage];
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error('[AIAssistant] save error', e); }
+        return next;
+      });
     },
     onError: (errMsg) => {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `❌ Error: ${errMsg}`,
-        timestamp: Date.now(),
-      }]);
+      setMessages(prev => {
+        const next = [...prev, {
+          role: 'assistant',
+          content: `❌ Error: ${errMsg}`,
+          timestamp: Date.now(),
+        }];
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error('[AIAssistant] save error', e); }
+        return next;
+      });
     }
   });
 
@@ -93,12 +124,29 @@ const AIAssistant: React.FC = () => {
 
     // Add user message
     const userMessage: ChatMessage = { role: 'user', content: input, timestamp: Date.now() };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => {
+      const next = [...prev, userMessage];
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error('[AIAssistant] save error', e); }
+      return next;
+    });
     
     const question = input;
     setInput('');
 
     // Start RAG-only streaming
+    startStream(question);
+  };
+
+  const handleSuggestion = (question: string) => {
+    if (isStreaming) return;
+    // Add user message and start stream immediately
+    const userMessage: ChatMessage = { role: 'user', content: question, timestamp: Date.now() };
+    setMessages(prev => {
+      const next = [...prev, userMessage];
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error('[AIAssistant] save error', e); }
+      return next;
+    });
+    setInput('');
     startStream(question);
   };
 
@@ -117,7 +165,7 @@ const AIAssistant: React.FC = () => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 rounded-3xl shadow-2xl flex flex-col flex-1 min-h-0 overflow-hidden border border-emerald-500/10">
+    <div className="relative bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 rounded-3xl shadow-2xl flex flex-col flex-1 min-h-0 overflow-hidden border border-emerald-500/10">
       {/* Header */}
       <div className="px-6 py-5 bg-slate-900/80 backdrop-blur-sm border-b border-emerald-500/20 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -153,7 +201,7 @@ const AIAssistant: React.FC = () => {
       <div ref={scrollRef} className="flex-grow overflow-y-auto p-6 space-y-5 custom-scrollbar bg-slate-950/30">
         {/* History Panel */}
         {showHistory && (
-          <div className="fixed inset-y-0 right-0 w-80 bg-slate-900/95 backdrop-blur-xl border-l border-emerald-500/30 shadow-2xl z-50 animate-in slide-in-from-right duration-300">
+          <div className="fixed top-20 right-6 bottom-6 w-80 bg-slate-900/95 backdrop-blur-xl border-l border-emerald-500/30 rounded-l-2xl shadow-2xl z-50 animate-in slide-in-from-right duration-300 overflow-hidden">
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-4 border-b border-emerald-500/20">
                 <div className="flex items-center gap-2">
@@ -296,6 +344,13 @@ const AIAssistant: React.FC = () => {
       </div>
 
       <div className="p-4 md:p-6 bg-slate-900/80 backdrop-blur-sm border-t border-emerald-500/20">
+        {/* Quick suggestion chips */}
+        <div className="mb-3 flex gap-2 flex-wrap">
+          <button onClick={() => handleSuggestion('How can I join ASTU?')} className="text-xs px-3 py-1.5 bg-slate-800/50 text-emerald-300 hover:bg-emerald-500/10 rounded-full border border-emerald-500/10">How can I join ASTU?</button>
+          <button onClick={() => handleSuggestion('What are the facilities of ASTU?')} className="text-xs px-3 py-1.5 bg-slate-800/50 text-emerald-300 hover:bg-emerald-500/10 rounded-full border border-emerald-500/10">Facilities of ASTU</button>
+          <button onClick={() => handleSuggestion('What is ASTU?')} className="text-xs px-3 py-1.5 bg-slate-800/50 text-emerald-300 hover:bg-emerald-500/10 rounded-full border border-emerald-500/10">What is ASTU?</button>
+        </div>
+
         <div className="relative flex gap-3">
           <input
             type="text"
