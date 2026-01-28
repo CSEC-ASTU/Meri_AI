@@ -159,8 +159,8 @@ async def root():
     return JSONResponse(status_code=200, content={
         "message": "Welcome to ASTU Route AI",
         "status": "ok",
-        "api_version": "0.1.0",
-        "admin": "/admin"
+        "api_version": "0.1.0"
+      
     })
 
 public_dir = Path("public")
