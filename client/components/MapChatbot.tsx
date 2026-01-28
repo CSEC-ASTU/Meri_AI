@@ -64,7 +64,6 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
   ]);
   const [input, setInput] = useState('');
   const [showReasoning, setShowReasoning] = useState<number | null>(null);
-  const [selectedMode, setSelectedMode] = useState<'walking' | 'taxi' | 'urgent'>(mode);
   const [selectedUrgency, setSelectedUrgency] = useState<'normal' | 'high'>('normal');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -170,7 +169,7 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
     startStream(userQuery, {
       latitude: currentLat,
       longitude: currentLng,
-      mode: selectedMode,
+      mode: mode,
       urgency: selectedUrgency,
     });
   };
@@ -204,8 +203,8 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
 
   // Styles for embedded vs floating
   const containerClasses = embedded
-    ? "flex flex-col h-full bg-slate-900 overflow-hidden" // Embedded: Fill parent, no rounded corners (handled by parent)
-    : `fixed bottom-6 right-6 z-[1100] w-[360px] max-w-[calc(100vw-48px)] bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl shadow-slate-900/50 flex flex-col transition-all duration-300 ${isMinimized ? 'h-14' : 'h-[480px] max-h-[70vh]'
+    ? "flex flex-col h-full bg-slate-900 rounded-2xl overflow-hidden" // Added rounded-2xl for embedded
+    : `fixed bottom-6 right-6 z-[1100] w-[360px] max-w-[calc(100vw-48px)] bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl shadow-slate-900/50 flex flex-col transition-all duration-300 ${isMinimized ? 'h-14' : 'h-[480px] max-h-[70vh]'
     }`;
 
   return (
@@ -214,7 +213,7 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
       <div
         className={`px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 flex items-center justify-between ${
           // Only add rounded top if NOT embedded (or if you want rounding in embedded too, but usually parent handles it)
-          !embedded ? "rounded-t-2xl cursor-pointer" : ""
+          !embedded ? "rounded-t-3xl cursor-pointer" : "rounded-t-2xl"
           }`}
         onClick={() => !embedded && setIsMinimized(!isMinimized)}
       >
@@ -231,23 +230,38 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
           </div>
         </div>
 
-        {/* Only show controls if NOT embedded */}
-        {!embedded && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}
-              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+        <div className="flex items-center gap-2">
+          {/* Urgency Level Dropdown */}
+          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <span className="text-[9px] text-emerald-100 font-semibold uppercase tracking-wider">Urgency:</span>
+            <select
+              value={selectedUrgency}
+              onChange={(e) => setSelectedUrgency(e.target.value as 'normal' | 'high')}
+              className="text-[10px] font-medium bg-white/10 text-white border border-white/20 px-2 py-1 rounded-lg outline-none hover:bg-white/20 transition-all cursor-pointer"
             >
-              {isMinimized ? <ChevronUp size={16} className="text-white" /> : <ChevronDown size={16} className="text-white" />}
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
-              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X size={16} className="text-white" />
-            </button>
+              <option value="normal" className="bg-slate-800 text-white">🕐 Normal</option>
+              <option value="high" className="bg-slate-800 text-white">🔥 High</option>
+            </select>
           </div>
-        )}
+
+          {/* Only show controls if NOT embedded */}
+          {!embedded && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                {isMinimized ? <ChevronUp size={16} className="text-white" /> : <ChevronDown size={16} className="text-white" />}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={16} className="text-white" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {(!isMinimized || embedded) && (
@@ -383,65 +397,11 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
               <button
                 key={i}
                 onClick={() => setInput(action.query)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium rounded-lg whitespace-nowrap transition-colors border border-slate-700"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium rounded-xl whitespace-nowrap transition-colors border border-slate-700"
               >
                 {action.text}
               </button>
             ))}
-          </div>
-
-          {/* Mode & Urgency Selectors */}
-          <div className="px-4 pt-3 pb-2 border-t border-slate-700">
-            <div className="space-y-2">
-              {/* Mode Selector */}
-              <div>
-                <label className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold mb-1.5 block">Travel Mode</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'walking', icon: '🚶', label: 'Walk' },
-                    { value: 'taxi', icon: '🚕', label: 'Taxi' },
-                    { value: 'urgent', icon: '⚡', label: 'Urgent' },
-                  ].map((modeOption) => (
-                    <button
-                      key={modeOption.value}
-                      onClick={() => setSelectedMode(modeOption.value as 'walking' | 'taxi' | 'urgent')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
-                        selectedMode === modeOption.value
-                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/30'
-                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                      }`}
-                    >
-                      <span className="mr-1">{modeOption.icon}</span>
-                      {modeOption.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Urgency Selector */}
-              <div>
-                <label className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold mb-1.5 block">Urgency Level</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'normal', icon: '🕐', label: 'Normal' },
-                    { value: 'high', icon: '🔥', label: 'High' },
-                  ].map((urgencyOption) => (
-                    <button
-                      key={urgencyOption.value}
-                      onClick={() => setSelectedUrgency(urgencyOption.value as 'normal' | 'high')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
-                        selectedUrgency === urgencyOption.value
-                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/30'
-                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                      }`}
-                    >
-                      <span className="mr-1">{urgencyOption.icon}</span>
-                      {urgencyOption.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Input */}

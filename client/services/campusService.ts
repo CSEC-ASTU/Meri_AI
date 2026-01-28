@@ -12,6 +12,17 @@ export interface NearbyService {
     distance_km?: number;
 }
 
+export interface POI {
+    id: number;
+    name: string;
+    type?: string;
+    category: string;
+    latitude: number;
+    longitude: number;
+    description?: string;
+    tags?: string[];
+}
+
 export interface AIResponse {
     answer: string;
     intent: string;
@@ -121,10 +132,28 @@ export const campusService = {
                     longitude: lon
                 }),
             });
+
             if (!response.ok) throw new Error('AI query failed');
             return await response.json();
         } catch (error) {
             console.error('Error querying AI:', error);
+            throw error;
+        }
+    },
+
+    async getAllPOIs(category?: string, limit: number = 100): Promise<POI[]> {
+        try {
+            const url = new URL(`${API_URL}/api/admin/pois`);
+            if (category) url.searchParams.append('category', category);
+            url.searchParams.append('limit', limit.toString());
+
+            const response = await fetch(url.toString());
+            if (!response.ok) throw new Error('Failed to fetch POIs');
+            
+            const data = await response.json();
+            return data.pois || [];
+        } catch (error) {
+            console.error('Error fetching POIs:', error);
             throw error;
         }
     }
