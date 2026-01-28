@@ -118,7 +118,7 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
         </div>
 
         <div className="flex flex-col items-start leading-none">
-          <span className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider">Ask Meri</span>
+          <span className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider">Ask Meri AI</span>
           <span className="text-sm font-bold">AI Assistant</span>
         </div>
 
