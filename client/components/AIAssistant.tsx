@@ -91,12 +91,13 @@ const AIAssistant: React.FC = () => {
       });
     },
     onError: (errMsg) => {
+      const errorMsg: ChatMessage = {
+        role: 'assistant',
+        content: `❌ Error: ${errMsg}`,
+        timestamp: Date.now(),
+      };
       setMessages(prev => {
-        const next = [...prev, {
-          role: 'assistant',
-          content: `❌ Error: ${errMsg}`,
-          timestamp: Date.now(),
-        }];
+        const next = [...prev, errorMsg];
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error('[AIAssistant] save error', e); }
         return next;
       });
@@ -114,11 +115,12 @@ const AIAssistant: React.FC = () => {
 
     // Validate minimum length
     if (input.trim().length < 3) {
-      setMessages(prev => [...prev, {
+      const warnMsg: ChatMessage = {
         role: 'assistant',
         content: '⚠️ Please enter at least 3 characters.',
         timestamp: Date.now(),
-      }]);
+      };
+      setMessages(prev => [...prev, warnMsg]);
       return;
     }
 

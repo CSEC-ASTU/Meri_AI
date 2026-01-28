@@ -12,6 +12,7 @@ import { AppRoute } from "../types";
 import { CAMPUS_NODES } from "../constants";
 import { useAppStore } from "../store/useAppStore";
 import { campusService, POI } from "../services/campusService";
+import { CampusNode } from "../types";
 
 // Dynamically import MapChatbot to avoid SSR issues
 const MapChatbot = dynamic(() => import("../components/MapChatbot"), {
@@ -62,7 +63,8 @@ export default function Home() {
   }, [currentRoute]);
 
   // Filter and sort POIs (use real POIs or fallback to CAMPUS_NODES)
-  const displayNodes = pois.length > 0 ? pois : CAMPUS_NODES;
+  // Use an explicit union type so TypeScript knows nodes can be POI or CampusNode
+  const displayNodes: Array<POI | CampusNode> = (pois.length > 0 ? (pois as POI[]) : (CAMPUS_NODES as CampusNode[])) as Array<POI | CampusNode>;
   
   const filteredAndSortedNodes = React.useMemo(() => {
     let filtered = displayNodes;
@@ -74,7 +76,7 @@ export default function Home() {
         node.name.toLowerCase().includes(search) ||
         (node.description && node.description.toLowerCase().includes(search)) ||
         node.category.toLowerCase().includes(search) ||
-        (node.type && node.type.toLowerCase().includes(search))
+        ('type' in node && node.type && node.type.toLowerCase().includes(search))
       );
     }
 
@@ -245,9 +247,11 @@ export default function Home() {
 
             {/* Directory Grid with Enhanced Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedNodes.map((node) => (
+              {filteredAndSortedNodes.map((rawNode) => {
+                const node = rawNode as any;
+                return (
                 <div
-                  key={node.id}
+                  key={node.id ?? node.name}
                   className="group cursor-pointer bg-white rounded-3xl border border-slate-200 p-6 shadow hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 overflow-hidden relative"
                 >
                   {/* Category Badge */}
@@ -307,7 +311,8 @@ export default function Home() {
                   {/* Hover Effect Border */}
                   <div className="absolute inset-0 rounded-3xl border-2 border-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Empty State (if no results) */}
