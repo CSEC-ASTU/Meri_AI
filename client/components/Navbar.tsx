@@ -26,10 +26,10 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentRoute }) => {
           <div className="leading-none text-left">
             {/* Amharic Text - Styled Green like the image */}
             <div className="font-extrabold text-2xl text-emerald-700 -mb-1">
-              መሪ
+              መሪ AI
             </div>
             <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-              MERIAI
+              Campus Navigator
             </div>
           </div>
         </button>

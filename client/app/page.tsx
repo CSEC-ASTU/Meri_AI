@@ -91,7 +91,7 @@ export default function Home() {
                 Campus Intelligence
               </h1>
               <p className="text-slate-600 mt-1 mb-6">
-                Ask Meri anything about ASTU locations.
+                Ask Meri AI anything about ASTU locations.
               </p> */}
               <AIAssistant />
             {/* </div> */}
