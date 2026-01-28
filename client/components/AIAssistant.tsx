@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, BookOpen, Zap, History, Trash2 } from 'lucide-react';
 import { useRAGStreaming } from '../hooks/useRAGStreaming';
+import { formatAIResponse } from '../utils/formatResponse';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -209,12 +210,12 @@ const AIAssistant: React.FC = () => {
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
               <div className="flex flex-col gap-2">
-                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-slate-800/80 text-white rounded-tr-none border border-slate-700/50'
                     : 'bg-slate-900/60 text-slate-200 rounded-tl-none border border-emerald-500/10 shadow-lg'
                 }`}>
-                  {msg.content}
+                  {msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content}
                 </div>
                 
                 {/* Confidence Badge */}

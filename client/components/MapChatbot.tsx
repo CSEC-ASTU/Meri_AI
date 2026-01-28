@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Navigation, X, MessageCircle, Route, MapPin, ChevronDown, ChevronUp, Loader2, Zap } from 'lucide-react';
 import { useNavigationStreaming, NavigationResponse } from '../hooks/useNavigationStreaming';
+import { formatAIResponse } from '../utils/formatResponse';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -22,13 +23,29 @@ export interface MapChatbotProps {
   embedded?: boolean;
 }
 
-// Default ASTU campus coordinates
-const DEFAULT_LATITUDE = 8.564168;
-const DEFAULT_LONGITUDE = 39.289311;
+// Default ASTU Main Gate coordinates
+const DEFAULT_LATITUDE = 8.55686;
+const DEFAULT_LONGITUDE = 39.29108;
+
+// Campus area boundaries (approximate OSM edges for Adama/ASTU area)
+const CAMPUS_BOUNDS = {
+  minLat: 8.52,
+  maxLat: 8.60,
+  minLng: 39.25,
+  maxLng: 39.32
+};
+
+// Check if coordinates are within campus area
+const isWithinCampusArea = (lat: number, lng: number): boolean => {
+  return lat >= CAMPUS_BOUNDS.minLat && 
+         lat <= CAMPUS_BOUNDS.maxLat && 
+         lng >= CAMPUS_BOUNDS.minLng && 
+         lng <= CAMPUS_BOUNDS.maxLng;
+};
 
 export const MapChatbot: React.FC<MapChatbotProps> = ({
-  latitude = DEFAULT_LATITUDE,
-  longitude = DEFAULT_LONGITUDE,
+  latitude,
+  longitude,
   selectedNodeName,
   mode = 'walking',
   onRouteGenerated,
@@ -36,6 +53,8 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'actual' | 'outside-range' | 'denied' | 'default'>('loading');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -46,6 +65,39 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
   const [input, setInput] = useState('');
   const [showReasoning, setShowReasoning] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Get user's actual location on mount
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
+          // Only use user location if within campus area
+          if (isWithinCampusArea(lat, lng)) {
+            setUserLocation({ lat, lng });
+            setLocationStatus('actual');
+            console.log(`User location within campus area: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+          } else {
+            console.log(`User location outside campus area (${lat.toFixed(5)}, ${lng.toFixed(5)}), using default main gate location`);
+            setUserLocation({ lat: DEFAULT_LATITUDE, lng: DEFAULT_LONGITUDE });
+            setLocationStatus('outside-range');
+          }
+        },
+        (error) => {
+          console.warn('Could not get user location:', error.message, '- Using default main gate location');
+          setUserLocation({ lat: DEFAULT_LATITUDE, lng: DEFAULT_LONGITUDE });
+          setLocationStatus('denied');
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      // Fallback to default if geolocation not supported
+      setUserLocation({ lat: DEFAULT_LATITUDE, lng: DEFAULT_LONGITUDE });
+      setLocationStatus('default');
+    }
+  }, []);
 
   const { isStreaming, reasoningSteps, answer, error, startStream } = useNavigationStreaming({
     onAnswer: (data) => {
@@ -85,6 +137,21 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
     }
   }, [messages, isOpen, reasoningSteps]);
 
+  // Listen for navigation events from map markers
+  useEffect(() => {
+    const handleNavigateToPOI = (event: any) => {
+      const { poiName } = event.detail;
+      if (poiName) {
+        setInput(`How do I get to ${poiName}?`);
+        setIsOpen(true);
+        setIsMinimized(false);
+      }
+    };
+
+    window.addEventListener('navigate-to-poi', handleNavigateToPOI);
+    return () => window.removeEventListener('navigate-to-poi', handleNavigateToPOI);
+  }, []);
+
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
 
@@ -93,10 +160,14 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
     const userQuery = input;
     setInput('');
 
+    // Use provided coordinates or user location, fallback to defaults
+    const currentLat = latitude || userLocation?.lat || DEFAULT_LATITUDE;
+    const currentLng = longitude || userLocation?.lng || DEFAULT_LONGITUDE;
+
     // Start SSE streaming with current location
     startStream(userQuery, {
-      latitude,
-      longitude,
+      latitude: currentLat,
+      longitude: currentLng,
       mode,
       urgency: mode === 'urgent' ? 'high' : 'normal',
     });
@@ -180,17 +251,41 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
       {(!isMinimized || embedded) && (
         <>
           {/* Location Context Banner */}
-          {(latitude && longitude) || selectedNodeName ? (
-            <div className="px-4 py-2 bg-slate-800/50 border-b border-slate-700/50 flex items-center gap-2">
-              <MapPin size={12} className="text-emerald-400" />
-              <span className="text-[10px] text-slate-400">
-                {selectedNodeName
-                  ? `Selected: ${selectedNodeName}`
-                  : latitude && longitude
-                    ? `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
-                    : 'No location set'
-                }
-              </span>
+          {selectedNodeName || userLocation || (latitude && longitude) ? (
+            <div className="px-4 py-2 bg-slate-800/50 border-b border-slate-700/50">
+              <div className="flex items-center gap-2">
+                <MapPin size={12} className="text-emerald-400" />
+                <div className="flex-1">
+                  {selectedNodeName ? (
+                    <span className="text-[10px] text-slate-400">Selected: {selectedNodeName}</span>
+                  ) : userLocation ? (
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 block">
+                        {locationStatus === 'actual' 
+                          ? `Your Location: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`
+                          : `ASTU Main Gate: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`
+                        }
+                      </span>
+                      {(locationStatus === 'outside-range' || locationStatus === 'denied' || locationStatus === 'default') && (
+                        <span className="text-[9px] text-amber-400/70 block">
+                          {locationStatus === 'outside-range' 
+                            ? '⚠️ Your location is far from campus - using main gate as starting point'
+                            : locationStatus === 'denied'
+                            ? '⚠️ Location access denied - using main gate as starting point'
+                            : '⚠️ Using main gate as default starting point'
+                          }
+                        </span>
+                      )}
+                    </div>
+                  ) : latitude && longitude ? (
+                    <span className="text-[10px] text-slate-400">
+                      Location: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400">Getting location...</span>
+                  )}
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -206,12 +301,12 @@ export const MapChatbot: React.FC<MapChatbotProps> = ({
                   </div>
                   <div className="flex flex-col gap-1">
                     {/* Message content */}
-                    <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed whitespace-pre-line ${
+                    <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed ${
                       msg.role === 'user'
                         ? 'bg-slate-700 text-white rounded-tr-sm'
                         : 'bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700'
                     }`}>
-                      {msg.content}
+                      {msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content}
                     </div>
                     
                     {/* Distance Badge */}

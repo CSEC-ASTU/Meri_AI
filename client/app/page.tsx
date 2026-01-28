@@ -153,7 +153,7 @@ export default function Home() {
       <Navbar onNavigate={setCurrentRoute} currentRoute={currentRoute} />
       {renderContent()}
       <Footer />
-      <InstallPWA />
+      <InstallPWA showOnlyOnHome={true} currentRoute={currentRoute} />
     </div>
   );
 }
