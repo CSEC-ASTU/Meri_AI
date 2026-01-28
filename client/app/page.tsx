@@ -85,16 +85,10 @@ export default function Home() {
 
       case AppRoute.ASSISTANT:
         return (
-          <main className="flex-grow pt-28 max-w-4xl mx-auto px-4 animate-in fade-in duration-500 mt-4">
-            {/* <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8">
-              <h1 className="text-3xl font-extrabold text-slate-900">
-                Campus Intelligence
-              </h1>
-              <p className="text-slate-600 mt-1 mb-6">
-                Ask Meri AI anything about ASTU locations.
-              </p> */}
+          <main className="flex-grow flex flex-col pt-20 px-4 pb-4 animate-in fade-in duration-500">
+            <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col">
               <AIAssistant />
-            {/* </div> */}
+            </div>
           </main>
         );
 
